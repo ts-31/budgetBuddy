@@ -35,9 +35,9 @@ io.on("connection", (socket) => {
   // Listen for incoming chat or custom events
   socket.on("message", (data) => {
     console.log("💬 Message from client:", data);
-
+    const reply = data;
     // Example: broadcast message to all clients
-    io.emit("message", data);
+    socket.emit("message", reply);
   });
 
   socket.on("disconnect", () => {
