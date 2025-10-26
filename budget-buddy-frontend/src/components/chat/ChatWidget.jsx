@@ -24,20 +24,31 @@ const ChatWidget = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
-  // ✅ Initialize WebSocket when chat opens first time
   useEffect(() => {
-    if (!open || socket.connected) return;
+    // only run when chat panel is opened
+    if (!open) return;
 
-    setConnectionStatus("connecting");
-    socket.connect();
+    // setConnectionStatus("connecting");
+    setConnectionStatus(socket.connected ? "connected" : "connecting");
+
+    // connect if not already connected
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    // ensure no duplicate handlers
+    socket.off("connect");
+    socket.off("connect_error");
+    socket.off("disconnect");
+    socket.off("message");
 
     socket.on("connect", () => {
       console.log("✅ Socket connected:", socket.id);
       setConnectionStatus("connected");
     });
 
-    socket.on("connect_error", () => {
-      console.log("❌ Socket connection failed");
+    socket.on("connect_error", (err) => {
+      console.log("❌ Socket connection failed", err);
       setConnectionStatus("disconnected");
     });
 
@@ -47,22 +58,26 @@ const ChatWidget = () => {
     });
 
     socket.on("message", (msg) => {
-      // Push incoming messages to redux
-      dispatch(addMessage({ from: "bot", text: msg, ts: Date.now() }));
+      console.log("📩 Message:", msg);
+      const text = msg?.text;
+      if (!text) return;
+      dispatch(addMessage({ from: msg.from || "assistant", text }));
     });
 
     return () => {
+      // remove handlers when chat closes (but keep the socket connected)
       socket.off("connect");
-      socket.off("disconnect");
       socket.off("connect_error");
-      socket.off("message");
-      // socket.disconnect(); // optional: keep connected across open/close
+      socket.off("disconnect");
+      // socket.off("message");
     };
   }, [open, dispatch]);
 
   const handleSend = (text) => {
     dispatch(addMessage({ from: "user", text, ts: Date.now() }));
-    socket.emit("message", text);
+    const userInfo = JSON.parse(localStorage.getItem("user"));
+    const userId = userInfo?._id;
+    socket.emit("message", { text, userId });
   };
 
   // Status indicator color

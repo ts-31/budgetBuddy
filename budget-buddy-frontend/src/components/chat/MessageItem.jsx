@@ -1,5 +1,5 @@
 import React from "react";
-import { formatDistanceToNow } from "date-fns";
+// import { formatDistanceToNow } from "date-fns";
 
 const MessageItem = ({ message }) => {
   const isUser = message.from === "user";
@@ -14,9 +14,6 @@ const MessageItem = ({ message }) => {
           }`}
       >
         <div>{message.text}</div>
-        <div className="text-[10px] text-gray-400 mt-1 text-right">
-          {formatDistanceToNow(new Date(message.ts), { addSuffix: true })}
-        </div>
       </div>
     </div>
   );

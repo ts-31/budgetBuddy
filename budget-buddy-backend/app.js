@@ -2,14 +2,15 @@ import express from "express";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import http from "http"; 
-import { Server } from "socket.io"; 
+import http from "http";
+import { Server } from "socket.io";
 
 import connectDB from "./config/db.js";
 import userRoutes from "./routes/userRoutes.js";
 import incomeRoutes from "./routes/incomeRoutes.js";
 import expenseRoutes from "./routes/expenseRoutes.js";
 import authenticateUser from "./middlewares/authenticateUser.js";
+import { handleNaturalQuery } from "./utils/nlQueryHandler.js";
 
 dotenv.config();
 
@@ -29,19 +30,53 @@ const io = new Server(server, {
 });
 
 // ✅ Socket.IO connection handler
+
 io.on("connection", (socket) => {
   console.log("🟢 New client connected:", socket.id);
 
-  // Listen for incoming chat or custom events
-  socket.on("message", (data) => {
-    console.log("💬 Message from client:", data);
-    const reply = data;
-    // Example: broadcast message to all clients
-    socket.emit("message", reply);
-  });
+  socket.on("message", async (data) => {
+    console.log("📩 Received:", data);
 
-  socket.on("disconnect", () => {
-    console.log("🔴 Client disconnected:", socket.id);
+    // data might be { text, userId } or plain string
+    const text = typeof data === "string" ? data : data.text;
+    const userId = data?.userId || socket.userId;
+
+    if (!userId) {
+      socket.emit("message", {
+        from: "assistant",
+        text: "User not authenticated. Please log in again.",
+      });
+      return;
+    }
+
+    const isDataQuery = /spent|expense|income|total|average|list/i.test(text);
+    console.log("isDataQuery:", isDataQuery);
+
+    if (isDataQuery) {
+      socket.emit("typing", { status: true });
+
+      try {
+        const reply = await handleNaturalQuery(userId, text);
+        console.log("💬 Reply:", reply);
+
+        socket.emit("message", {
+          from: "assistant",
+          text: reply.answer ?? String(reply),
+        });
+      } catch (err) {
+        console.error("❌ LangChain error:", err);
+        socket.emit("message", {
+          from: "assistant",
+          text: "Sorry, something went wrong.",
+        });
+      } finally {
+        socket.emit("typing", { status: false });
+      }
+      return;
+    }
+
+    // Normal echo back
+    socket.emit("message", { from: "assistant", text: text });
   });
 });
 

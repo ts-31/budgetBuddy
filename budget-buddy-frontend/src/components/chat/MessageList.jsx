@@ -12,7 +12,9 @@ const MessageList = ({ messages = [] }) => {
   return (
     <div className="space-y-3">
       {messages.length === 0 && (
-        <div className="text-xs text-gray-400">Say hi 👋 — ask about incomes, expenses, or settings.</div>
+        <div className="text-xs text-gray-400">
+          Say hi 👋 — ask about incomes, expenses.
+        </div>
       )}
       {messages.map((m) => (
         <MessageItem key={m.id} message={m} />
