@@ -29,16 +29,13 @@ const io = new Server(server, {
   },
 });
 
-// ✅ Socket.IO connection handler
-
 io.on("connection", (socket) => {
   console.log("🟢 New client connected:", socket.id);
 
   socket.on("message", async (data) => {
     console.log("📩 Received:", data);
 
-    // data might be { text, userId } or plain string
-    const text = typeof data === "string" ? data : data.text;
+    const text = typeof data === "string" ? data : data.text || "";
     const userId = data?.userId || socket.userId;
 
     if (!userId) {
@@ -49,25 +46,44 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const isDataQuery = /spent|expense|income|total|average|list/i.test(text);
+    const raw = String(text);
+    const lower = raw.toLowerCase().trim();
+
+    const greetings = ["hi", "hello", "hey", "good morning", "good evening"];
+    if (greetings.includes(lower)) {
+      socket.emit("message", {
+        from: "assistant",
+        text: "Hello! I’m your Budget Assistant 💬. Ask me about incomes or expenses.",
+      });
+      return;
+    }
+
+    const isDataQuery = /spent|expense|income|total|average|list|earn/i.test(
+      raw
+    );
     console.log("isDataQuery:", isDataQuery);
+
+    const isOnlySymbols = /^[^a-zA-Z0-9]+$/.test(raw);
+    const isNumericOnly = /^\d+$/.test(raw);
+    const isVeryShort = raw.length <= 2;
+    const alphaMatches = raw.match(/[a-z]/gi) || [];
+    const alphaCount = alphaMatches.length;
+    const looksLikeWord =
+      alphaCount >= 3 || (alphaCount >= 2 && /\d/.test(raw));
 
     if (isDataQuery) {
       socket.emit("typing", { status: true });
-
       try {
-        const reply = await handleNaturalQuery(userId, text);
-        console.log("💬 Reply:", reply);
-
+        const reply = await handleNaturalQuery(userId, raw);
         socket.emit("message", {
           from: "assistant",
           text: reply.answer ?? String(reply),
         });
       } catch (err) {
-        console.error("❌ LangChain error:", err);
+        console.error("❌ handleNaturalQuery error:", err);
         socket.emit("message", {
           from: "assistant",
-          text: "Sorry, something went wrong.",
+          text: "Sorry, something went wrong while processing your request.",
         });
       } finally {
         socket.emit("typing", { status: false });
@@ -75,8 +91,21 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // Normal echo back
-    socket.emit("message", { from: "assistant", text: text });
+    if (isOnlySymbols || isNumericOnly || isVeryShort) {
+      return;
+    }
+
+    if (looksLikeWord) {
+      socket.emit("typing", { status: true });
+      setTimeout(() => {
+        socket.emit("message", {
+          from: "assistant",
+          text: "Hmm, I didn’t understand that. Try asking about your incomes or expenses.",
+        });
+        socket.emit("typing", { status: false });
+      }, 600);
+      return;
+    }
   });
 });
 
