@@ -23,7 +23,7 @@ const server = http.createServer(app);
 // ✅ Initialize Socket.IO server
 const io = new Server(server, {
   cors: {
-    origin: "https://budget-buddy-frontend-phi.vercel.app",
+    origin: "https://budgetbuddy-wokh.onrender.com",
     credentials: true,
     methods: ["GET", "POST"],
   },
