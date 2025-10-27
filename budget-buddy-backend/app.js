@@ -116,7 +116,7 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: "https://budget-buddy-frontend-phi.vercel.app",
+    origin: "https://budgetbuddy-wokh.onrender.com",
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
