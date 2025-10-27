@@ -1,8 +1,10 @@
 // src/socket.js
 import { io } from "socket.io-client";
 
-const socket = io(import.meta.env.VITE_BACKEND_API_URL, {
-  autoConnect: false, // connect manually
+const baseSocketURL = import.meta.env.VITE_BACKEND_API_URL.replace(/\/api\/v1\/?$/, "");
+
+const socket = io(baseSocketURL, {
+  autoConnect: false,
   transports: ["websocket"],
   withCredentials: true,
 });
