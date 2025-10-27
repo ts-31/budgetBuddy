@@ -15,20 +15,21 @@ import { handleNaturalQuery } from "./utils/nlQueryHandler.js";
 dotenv.config();
 
 const PORT = process.env.PORT || 3000;
-const app = express();
+const FRONTEND_URL = "https://budgetbuddy-wokh.onrender.com";
 
-// ✅ Create HTTP server wrapper
+const app = express();
 const server = http.createServer(app);
 
-// ✅ Initialize Socket.IO server
+// 1. Initialize Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: "https://budgetbuddy-wokh.onrender.com",
+    origin: FRONTEND_URL,
     credentials: true,
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   },
 });
 
+// 2. Socket.io events
 io.on("connection", (socket) => {
   console.log("🟢 New client connected:", socket.id);
 
@@ -61,8 +62,6 @@ io.on("connection", (socket) => {
     const isDataQuery = /spent|expense|income|total|average|list|earn/i.test(
       raw
     );
-    console.log("isDataQuery:", isDataQuery);
-
     const isOnlySymbols = /^[^a-zA-Z0-9]+$/.test(raw);
     const isNumericOnly = /^\d+$/.test(raw);
     const isVeryShort = raw.length <= 2;
@@ -91,9 +90,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    if (isOnlySymbols || isNumericOnly || isVeryShort) {
-      return;
-    }
+    if (isOnlySymbols || isNumericOnly || isVeryShort) return;
 
     if (looksLikeWord) {
       socket.emit("typing", { status: true });
@@ -104,36 +101,45 @@ io.on("connection", (socket) => {
         });
         socket.emit("typing", { status: false });
       }, 600);
-      return;
     }
   });
 });
 
-// ✅ Middleware
+// 3. Middleware setup
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// 4. Proper CORS setup for Express (same as Socket)
 app.use(
   cors({
-    origin: "https://budgetbuddy-wokh.onrender.com",
+    origin: FRONTEND_URL,
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-// ✅ Test route
+// 5. Handle preflight (important on Render)
+app.options(
+  "*",
+  cors({
+    origin: FRONTEND_URL,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  })
+);
+
+// 6. Routes
 app.get("/", (req, res) => {
-  res.send({ message: "hello" });
+  res.send({ message: "Server is running ✅" });
 });
 
-// ✅ Routes
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/incomes", authenticateUser, incomeRoutes);
 app.use("/api/v1/expenses", authenticateUser, expenseRoutes);
 
-// ✅ Start the server
+// 7. Start the server
 const startServer = async () => {
   try {
     await connectDB();
@@ -141,7 +147,7 @@ const startServer = async () => {
       console.log(`🚀 Server + WebSocket running on PORT ${PORT}`);
     });
   } catch (error) {
-    console.log(`❌ Error in starting the server: ${error.message}`);
+    console.error(`❌ Error in starting the server: ${error.message}`);
     process.exit(1);
   }
 };
